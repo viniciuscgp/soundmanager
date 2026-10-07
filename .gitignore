@@ -22,6 +22,7 @@ Desktop.ini
 /packaging/
 /BUILDING.md
 /readme.txt
+/marketing/
 *.spec
 
 # Executáveis, dependências compiladas e pacotes de distribuição
