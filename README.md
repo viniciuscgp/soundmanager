@@ -33,7 +33,7 @@ As edições ficam na memória até usar **Salvar áudio** e confirmar a substit
 
 ## Preferências e atalhos
 
-Biblioteca, última pasta, posição e tamanho da janela, divisória, volume, repetição e última pasta de exportação ficam em `.state/settings.ini` ao executar pelo código Python. No executável Windows ficam em `%LOCALAPPDATA%\SoundManager\settings.ini`; no executável Linux, em `$XDG_CONFIG_HOME/sound-manager/settings.ini` ou `~/.config/sound-manager/settings.ini`. Assim, atualizar ou mover o executável preserva as preferências. O argumento `--settings` permite escolher outro arquivo de preferências. Se um monitor foi desconectado, a janela volta para uma tela disponível.
+Biblioteca, última pasta, posição e tamanho da janela, divisória, volume, repetição e última pasta de exportação ficam em `.state/settings.ini`. O argumento `--settings` permite escolher outro arquivo de preferências. Se um monitor foi desconectado, a janela volta para uma tela disponível.
 
 | Atalho | Ação |
 | --- | --- |
@@ -81,7 +81,7 @@ python3 -m venv .venv
 
 Este repositório contém o código-fonte do app, dependências de execução, iniciadores, testes, ferramentas de validação e os ícones da interface. Os testes geram seus próprios áudios sintéticos; nenhuma biblioteca de sons precisa ser baixada para validá-los.
 
-Os geradores de executáveis, dependências de empacotamento, `build/`, `dist/`, ambientes Python, preferências pessoais e arquivos de áudio ficam fora do versionamento por meio do `.gitignore`. Esses arquivos podem permanecer no disco sem entrar nos commits.
+Ambientes Python, preferências pessoais e arquivos de áudio ficam fora do versionamento por meio do `.gitignore`.
 
 ## Verificar
 

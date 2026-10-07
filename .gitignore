@@ -21,6 +21,7 @@ Desktop.ini
 /tools/build_executable.py
 /packaging/
 /BUILDING.md
+/readme.txt
 *.spec
 
 # Executáveis, dependências compiladas e pacotes de distribuição
