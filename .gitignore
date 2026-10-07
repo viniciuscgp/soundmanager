@@ -1,0 +1,53 @@
+# Ambientes Python, preferências e resultados locais
+.venv*/
+.state/
+build/
+dist/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.pytest_cache/
+.directory
+Desktop.ini
+.env
+.env.*
+
+# Gerador de executáveis: mantido no disco, fora do repositório
+/build.ps1
+/Build-Windows.bat
+/build-linux.sh
+/requirements-build.txt
+/tools/build_executable.py
+/packaging/
+/BUILDING.md
+*.spec
+
+# Executáveis, dependências compiladas e pacotes de distribuição
+*.exe
+*.dll
+*.so
+*.dylib
+*.msi
+*.AppImage
+*.deb
+*.rpm
+*.zip
+*.tar.gz
+*.7z
+
+# Bibliotecas e arquivos de áudio, inclusive extensões com maiúsculas
+sounds/
+musics/
+audio/
+library/
+*.[wW][aA][vV]
+*.[oO][gG][gG]
+*.[mM][pP]3
+*.[fF][lL][aA][cC]
+*.[aA][iI][fF]
+*.[aA][iI][fF][fF]
+*.[mM]4[aA]
+*.[aA][aA][cC]
+*.[oO][pP][uU][sS]
+*.[wW][mM][aA]
