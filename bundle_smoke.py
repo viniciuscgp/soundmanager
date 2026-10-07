@@ -41,6 +41,7 @@ def run(application, directory: Path) -> int:
     try:
         assert (APP_DIR / "assets" / "sound-manager.ico").is_file()
         assert (APP_DIR / "assets" / "sound-manager.png").is_file()
+        assert (APP_DIR / "assets" / "qtbase_pt_BR.qm").is_file()
         checks.append("packaged icons")
         ffmpeg = Path(imageio_ffmpeg.get_ffmpeg_exe()).resolve()
         assert ffmpeg.is_file()
@@ -66,6 +67,9 @@ def run(application, directory: Path) -> int:
         settings = directory / "settings.ini"
         settings.unlink(missing_ok=True)
         window = SoundManager(settings, prompt=False)
+        assert window.i18n.language == "pt_BR"
+        assert window.qt_translator.translate("QPlatformTheme", "&Yes") == "&Sim"
+        checks.append("bundled Portuguese Qt dialog translations")
         window.show_error = lambda title, message: errors.append((title, message))
         window.output.setMuted(True)
         window.set_base(library)
@@ -112,17 +116,30 @@ def run(application, directory: Path) -> int:
         np.testing.assert_array_equal(load_audio(source).samples, edited)
         checks.append("confirmed current document save")
         window.seek(1.2)
+        selection = window.waveform.selection
+        window.language_combo.setCurrentIndex(window.language_combo.findData("en"))
+        assert window.export_all_button.text() == "Save audio"
+        assert window.files.headerItem().text(0) == "Listen / edit"
+        assert window.waveform.selection == selection and window.clip.source == source.resolve()
+        checks.append("live English interface with document preserved")
         window.resize(1100, 760)
         window.files.verticalScrollBar().setValue(window.files.verticalScrollBar().maximum())
+        QTest.qWait(100)
+        assert window.grab().save(str(directory / "window-en.png"))
+        window.language_combo.setCurrentIndex(window.language_combo.findData("pt_BR"))
+        assert window.export_all_button.text() == "Salvar áudio"
         QTest.qWait(100)
         assert window.grab().save(str(directory / "window.png"))
         checks.append("rendered UI screenshot")
         window.volume.setValue(37)
+        window.language_combo.setCurrentIndex(window.language_combo.findData("en"))
         window.persist()
         window.close()
         window = SoundManager(settings, prompt=False)
         assert window.base == library and window.volume.value() == 37
+        assert window.language_combo.currentData() == "en" and window.export_all_button.text() == "Save audio"
         checks.append("preferences survive restart")
+        checks.append("English preference survives restart in bundled app")
         report["passed"] = True
     except Exception:
         report["error"] = traceback.format_exc()

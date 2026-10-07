@@ -1,5 +1,7 @@
 # Sound Manager
 
+[English guide](README-EN.md)
+
 Organize sua biblioteca de sons, ouça arquivos e edite trechos em uma única janela. O Sound Manager trabalha com os arquivos do seu computador e funciona offline.
 
 ## Abrir o app
@@ -9,6 +11,12 @@ Organize sua biblioteca de sons, ouça arquivos e edite trechos em uma única ja
 3. **Linux:** abra `SoundManager`. Se o sistema pedir permissão para executar, marque o arquivo como executável nas propriedades ou use `chmod +x SoundManager` no terminal.
 
 Não é necessário instalar Python ou FFmpeg para usar o pacote do app. Se o pacote tiver uma pasta `_internal`, mantenha essa pasta junto do programa. A primeira abertura pode levar alguns segundos.
+
+## Escolher o idioma
+
+No canto superior direito, use **Idioma / Language** para escolher **Português (BR)** ou **English**. A interface muda na hora, sem interromper a reprodução nem perder a edição atual.
+
+A escolha é salva automaticamente. Na próxima abertura, o app já usa o idioma escolhido. Os nomes dos seus arquivos e pastas permanecem como estão.
 
 ## Escolher seus sons
 
@@ -65,7 +73,7 @@ As edições são mantidas ao trocar de arquivo durante a sessão. **Para mantê
 
 Arraste pelo **nome do arquivo** para uma pasta na árvore à esquerda ou para uma pasta aberta no gerenciador de arquivos do computador. Use Ctrl ou Shift para selecionar vários arquivos.
 
-O arraste faz uma cópia e mantém o arquivo de origem. Ao copiar dentro do app, nomes repetidos recebem um sufixo como `(cópia)`, sem substituir o arquivo que já existe no destino. **Mostrar arquivo** abre a pasta do som original.
+O arraste faz uma cópia e mantém o arquivo de origem. Ao copiar dentro do app, nomes repetidos recebem um sufixo como `(cópia)` em português ou `(copy)` em inglês, sem substituir o arquivo que já existe no destino. **Mostrar arquivo** abre a pasta do som original.
 
 ## Atalhos
 
@@ -86,7 +94,7 @@ Nos campos de texto, Ctrl+A continua selecionando o texto do campo.
 
 ## Preferências e formatos
 
-O app lembra a biblioteca, a última pasta aberta, o tamanho e a posição da janela, o volume de reprodução, a repetição e a última pasta usada para salvar trechos.
+O app lembra o idioma, a biblioteca, a última pasta aberta, o tamanho e a posição da janela, o volume de reprodução, a repetição e a última pasta usada para salvar trechos.
 
 Formatos que podem ser abertos: **WAV, OGG, MP3, FLAC, AIFF, M4A, AAC, OPUS e WMA**.
 

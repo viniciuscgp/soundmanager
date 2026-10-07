@@ -37,6 +37,13 @@ python3 -m venv .venv
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe tools\validate_app.py
 .\.venv\Scripts\python.exe tools\validate_editor.py
+.\.venv\Scripts\python.exe tools\validate_languages.py
 ```
 
 O segundo comando verifica a interface, reprodução sem abrir a onda, editor na linha, recorte, exportação, eventos de arraste/cópia e restauração de preferências em um ambiente separado dentro de `.state/validation`, e gera capturas de tela. O terceiro verifica volume, inversão, fades, desfazer/refazer, remoção com junção das partes, áudio vazio, controles de reprodução na própria linha, colagem entre sons com taxas e canais diferentes, troca de documentos durante uma edição e exportação do resultado, em `.state/validation-editor`. Também verifica Ctrl+A, Play/Pausa, indicador na onda e confirmação, cancelamento e falha do salvamento no arquivo aberto, usando apenas arquivos sintéticos. Não alteram as preferências de uso normal nem os sons da biblioteca.
+
+O quarto verifica a troca imediata PT-BR/EN, preservação de edição, histórico, cópia, seleção, zoom e reprodução, os diálogos traduzidos e a preferência ao reabrir. As capturas e o relatório ficam em `.state/validation-languages`.
+
+## Textos da interface
+
+O catálogo inglês e as ligações entre textos e controles ficam em `i18n.py`. A língua de origem é português. Use `self.ui(controle, "setText", "Texto {0}", valor)` para um texto que precisa mudar ao trocar o idioma, ou `self.t("Texto")` para diálogos. Valores como nomes de arquivos ficam fora da tradução. Para um argumento que também precisa ser traduzido, use `Message("Texto")`.

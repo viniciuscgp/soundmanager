@@ -9,6 +9,7 @@ from PySide6.QtGui import QDrag, QColor, QPainter
 from PySide6.QtWidgets import QTreeWidget, QTreeView, QAbstractItemView, QStyledItemDelegate, QStyle
 
 from audio_engine import EXTENSIONS
+from i18n import Localizer
 
 
 def index_library(base: Path, cancelled) -> dict[Path, list[str]]:
@@ -36,7 +37,7 @@ def index_library(base: Path, cancelled) -> dict[Path, list[str]]:
     return folders
 
 
-def copy_files(sources: list[Path], directory: Path) -> list[Path]:
+def copy_files(sources: list[Path], directory: Path, copy_label="cópia") -> list[Path]:
     directory = directory.resolve(strict=True)
     if not directory.is_dir():
         raise ValueError("O destino precisa ser uma pasta.")
@@ -47,7 +48,7 @@ def copy_files(sources: list[Path], directory: Path) -> list[Path]:
             raise ValueError(f"Não é um arquivo de áudio: {source.name}")
         number = 0
         while True:
-            name = source.name if number == 0 else f"{source.stem} (cópia{'' if number == 1 else ' ' + str(number)}){source.suffix}"
+            name = source.name if number == 0 else f"{source.stem} ({copy_label}{'' if number == 1 else ' ' + str(number)}){source.suffix}"
             destination = directory / name
             try:
                 output = destination.open("xb")
@@ -68,14 +69,15 @@ def copy_files(sources: list[Path], directory: Path) -> list[Path]:
 class FileList(QTreeWidget):
     dragFinished = Signal(object)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, localizer=None):
         super().__init__(parent)
+        self.i18n = localizer or Localizer()
         self.setDragEnabled(True)
         self.setDragDropMode(QAbstractItemView.DragDropMode.DragOnly)
         self.setDefaultDropAction(Qt.DropAction.CopyAction)
         self.setExpandsOnDoubleClick(False)
         self.drag_from_name = False
-        self.empty_message = "Escolha uma pasta à esquerda para ver os arquivos."
+        self.i18n.bind(self, "empty_message", "Escolha uma pasta à esquerda para ver os arquivos.")
 
     def mousePressEvent(self, event):
         index = self.indexAt(event.position().toPoint())
@@ -114,15 +116,16 @@ class FileList(QTreeWidget):
 class FolderTree(QTreeView):
     copyRequested = Signal(object, object)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, localizer=None):
         super().__init__(parent)
+        self.i18n = localizer or Localizer()
         self.setAcceptDrops(True)
         self.setDragDropMode(QAbstractItemView.DragDropMode.DropOnly)
         self.setDefaultDropAction(Qt.DropAction.CopyAction)
         self.setDropIndicatorShown(False)
         self.setAutoExpandDelay(600)
         self.hover_index = None
-        self.empty_message = "Esta biblioteca não tem subpastas."
+        self.i18n.bind(self, "empty_message", "Esta biblioteca não tem subpastas.")
         self.hover_timer = QTimer(self)
         self.hover_timer.setSingleShot(True)
         self.hover_timer.setInterval(600)
@@ -203,6 +206,10 @@ class FileActions(QStyledItemDelegate):
     playRequested = Signal(object)
     editorRequested = Signal(object)
 
+    def __init__(self, parent=None, localizer=None):
+        super().__init__(parent)
+        self.i18n = localizer or Localizer()
+
     def paint(self, painter, option, index):
         super().paint(painter, option, index)
         if not index.data(Qt.ItemDataRole.UserRole):
@@ -222,7 +229,7 @@ class FileActions(QStyledItemDelegate):
         painter.setPen(QColor("#68788f" if unavailable else "#86e9d1"))
         painter.drawText(QRectF(rect.left() + 6, rect.top(), 32, rect.height()), Qt.AlignmentFlag.AlignCenter, "Ⅱ" if playing else "▶")
         painter.setPen(QColor("#d6e1ef"))
-        painter.drawText(editor_rect, Qt.AlignmentFlag.AlignCenter, "⌃ Fechar" if expanded else "⌄ Recortar")
+        painter.drawText(editor_rect, Qt.AlignmentFlag.AlignCenter, self.i18n.text("⌃ Fechar" if expanded else "⌄ Recortar"))
         painter.restore()
 
     def editorEvent(self, event, model, option, index):

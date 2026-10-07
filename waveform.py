@@ -7,6 +7,7 @@ from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
 from PySide6.QtWidgets import QWidget
 
 from audio_engine import AudioClip
+from i18n import Localizer
 
 
 def time_label(seconds: float) -> str:
@@ -18,8 +19,9 @@ class Waveform(QWidget):
     selectionChanged = Signal(float, float)
     viewChanged = Signal(float, float)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, localizer=None):
         super().__init__(parent)
+        self.i18n = localizer or Localizer()
         self.setMinimumHeight(150)
         self.setMouseTracking(True)
         self.clip = None
@@ -30,7 +32,7 @@ class Waveform(QWidget):
         self.cursor = 0.0
         self.anchor = None
         self.drag_mode = ""
-        self.setToolTip("Arraste para selecionar um trecho ou ajustar as alças. Use a roda para ampliar. A linha amarela indica a reprodução; use a barra abaixo para mudar a posição.")
+        self.i18n.bind(self, "setToolTip", "Arraste para selecionar um trecho ou ajustar as alças. Use a roda para ampliar. A linha amarela indica a reprodução; use a barra abaixo para mudar a posição.")
 
     def set_clip(self, clip: AudioClip):
         self.clip = clip
@@ -103,7 +105,7 @@ class Waveform(QWidget):
         if not self.clip or not len(self.clip.samples):
             painter.setPen(QColor("#92a1b5"))
             message = "Áudio vazio\n\nUse Desfazer para recuperar ou Colar no cursor para inserir um trecho." if self.clip is not None else "Seu próximo som começa aqui\n\nAbra um arquivo ou toque em ▶ na biblioteca."
-            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, message)
+            painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, self.i18n.text(message))
             return
         center_y = rect.center().y()
         painter.setPen(QPen(QColor("#273343"), 1))
@@ -149,7 +151,7 @@ class Waveform(QWidget):
                 painter.setBrush(QColor("#62d6bf"))
                 painter.drawRoundedRect(QRectF(x - 4, rect.top() - 8, 8, 16), 2, 2)
         painter.setPen(QColor("#aab8ca"))
-        painter.drawText(QRectF(18, 8, self.width() - 36, 22), f"FORMA DE ONDA    ·    {self.clip.channels} canal(is)    ·    arraste para selecionar")
+        painter.drawText(QRectF(18, 8, self.width() - 36, 22), self.i18n.text("FORMA DE ONDA    ·    {0} canal(is)    ·    arraste para selecionar", self.clip.channels))
 
     def mousePressEvent(self, event):
         if not self.clip or event.button() != Qt.MouseButton.LeftButton:
@@ -201,15 +203,16 @@ class PlaybackBar(QWidget):
     """Independent, full-document seek track; dragging never changes the selection."""
     seekRequested = Signal(float)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, localizer=None):
         super().__init__(parent)
+        self.i18n = localizer or Localizer()
         self.duration = self.cursor = 0.0
         self.dragging = False
         self.setFixedHeight(28)
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setAccessibleName("Posição de reprodução")
-        self.setToolTip("Clique ou arraste para posicionar a reprodução e a colagem. Setas: mover 0,1 s; Home/End: início/fim.")
+        self.i18n.bind(self, "setAccessibleName", "Posição de reprodução")
+        self.i18n.bind(self, "setToolTip", "Clique ou arraste para posicionar a reprodução e a colagem. Setas: mover 0,1 s; Home/End: início/fim.")
 
     def set_duration(self, duration):
         self.duration = max(0.0, duration)

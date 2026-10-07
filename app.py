@@ -14,13 +14,13 @@ import numpy as np
 import soundfile as sf
 from PySide6.QtCore import (
     Qt, QObject, Signal, Slot, QRunnable, QThreadPool, QSettings, QDir, QUrl,
-    QTimer, QMimeData, QEvent, QRectF, QSize,
+    QTimer, QMimeData, QEvent, QRectF, QSize, QTranslator, QLibraryInfo, QLocale,
 )
 from PySide6.QtGui import QColor, QDesktopServices, QFont, QKeySequence, QPainter, QShortcut, QIcon
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
-    QPushButton, QToolButton, QLineEdit, QTreeView, QFileSystemModel,
+    QPushButton, QToolButton, QComboBox, QLineEdit, QTreeView, QFileSystemModel,
     QTreeWidget, QTreeWidgetItem, QHeaderView, QSplitter, QFileDialog,
     QMessageBox, QDoubleSpinBox, QSlider, QScrollBar, QCheckBox,
     QAbstractItemView, QStyledItemDelegate, QFrame, QStyle, QScrollArea, QSizePolicy,
@@ -31,6 +31,7 @@ from waveform import Waveform, PlaybackBar, time_label
 from editor_icons import editor_icon
 from file_browser import FileList, FolderTree, FileActions, copy_files, index_library
 from app_paths import APP_DIR, state_dir, default_library_dir
+from i18n import Localizer, Message
 
 STYLE = """
 QWidget { background: #161e2a; color: #e4eaf3; font-family: 'Segoe UI'; font-size: 13px; }
@@ -49,8 +50,8 @@ QPushButton:disabled, QToolButton:disabled { color: #68788f; background: #202b3b
 QPushButton#primary { background: #62d6bf; color: #0f2627; border-color: #62d6bf; font-weight: 700; }
 QPushButton#primary:hover { background: #83e5d2; }
 QPushButton#primary:disabled { background: #254742; color: #71938c; border-color: #254742; }
-QLineEdit, QDoubleSpinBox { background: #101822; border: 1px solid #35465c; border-radius: 6px; padding: 7px; selection-background-color: #327d76; }
-QLineEdit:focus, QDoubleSpinBox:focus { border-color: #62d6bf; }
+QComboBox, QLineEdit, QDoubleSpinBox { background: #101822; border: 1px solid #35465c; border-radius: 6px; padding: 7px; selection-background-color: #327d76; }
+QComboBox:focus, QLineEdit:focus, QDoubleSpinBox:focus { border-color: #62d6bf; }
 QTreeView, QTreeWidget { background: #121a25; border: 1px solid #2b394d; border-radius: 7px; alternate-background-color: #17212e; }
 QTreeView::item { padding: 6px; }
 QTreeView::item:selected { background: #28423f; color: #d4fff3; }
@@ -103,6 +104,9 @@ class SoundManager(QMainWindow):
         settings_path = Path(settings_path or state_dir() / "settings.ini")
         settings_path.parent.mkdir(parents=True, exist_ok=True)
         self.settings = QSettings(str(settings_path), QSettings.Format.IniFormat)
+        self.i18n = Localizer(self.settings.value("language", "pt_BR"))
+        self.qt_translator = QTranslator(self)
+        self.apply_qt_language()
         self.pool = QThreadPool(self)
         self.pool.setMaxThreadCount(2)
         # Windows media backends can briefly retain preview handles during shutdown.
@@ -158,14 +162,56 @@ class SoundManager(QMainWindow):
         if not self.base and prompt:
             QTimer.singleShot(150, self.choose_base)
 
+    def t(self, source, *values):
+        return self.i18n.text(source, *values)
+
+    def display_clip_name(self):
+        name = self.clip.name
+        if self.clip.source and name == self.clip.source.name:
+            return name
+        if name == "Trecho copiado":
+            return Message(name)
+        if name.endswith(" — trecho"):
+            return Message("{0} — trecho", (name.removesuffix(" — trecho"),))
+        return name
+
+    def ui(self, target, method, source, *values, prefix=()):
+        self.i18n.bind(target, method, source, *values, prefix=prefix)
+
+    def apply_qt_language(self):
+        application = QApplication.instance()
+        application.removeTranslator(self.qt_translator)
+        if self.i18n.language == "pt_BR":
+            catalog = APP_DIR / "assets" / "qtbase_pt_BR.qm"
+            if not catalog.is_file():
+                catalog = Path(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)) / catalog.name
+            if self.qt_translator.load(str(catalog)):
+                application.installTranslator(self.qt_translator)
+        self.setLocale(QLocale("en_US" if self.i18n.language == "en" else "pt_BR"))
+
+    def change_language(self, _index):
+        language = self.language_combo.currentData()
+        self.settings.setValue("language", language)
+        self.settings.sync()
+        self.i18n.set_language(language)
+        self.apply_qt_language()
+        self.waveform.update()
+        for number in range(self.files.topLevelItemCount()):
+            self.files.topLevelItem(number).setToolTip(0, self.t("▶ ouvir / pausar   ·   Recortar abre a onda nesta linha"))
+        self.files.viewport().update()
+        if self.editor_host is not None:
+            self.editor_child.setSizeHint(0, QSize(0, self.editor.minimumSizeHint().height() + 20))
+
     def label(self, text, name=None):
-        label = QLabel(text)
+        label = QLabel()
+        self.ui(label, "setText", text)
         if name:
             label.setObjectName(name)
         return label
 
     def button(self, text, callback, primary=False):
-        button = QPushButton(text)
+        button = QPushButton()
+        self.ui(button, "setText", text)
         if primary:
             button.setObjectName("primary")
         button.clicked.connect(callback)
@@ -178,8 +224,8 @@ class SoundManager(QMainWindow):
         button.setFixedHeight(32)
         if not text:
             button.setFixedWidth(32)
-        button.setToolTip(tooltip)
-        button.setAccessibleName(tooltip.split(".")[0])
+        self.ui(button, 'setToolTip', tooltip)
+        self.ui(button, 'setAccessibleName', tooltip)
         return button
 
     @staticmethod
@@ -205,6 +251,15 @@ class SoundManager(QMainWindow):
         header.addStretch()
         header.addWidget(self.label("Ouça. Selecione. Salve.", "muted"))
         header.addSpacing(14)
+        header.addWidget(self.label("Idioma", "muted"))
+        self.language_combo = QComboBox()
+        self.language_combo.addItem("Português (BR)", "pt_BR")
+        self.language_combo.addItem("English", "en")
+        self.language_combo.setCurrentIndex(self.language_combo.findData(self.i18n.language))
+        self.ui(self.language_combo, "setToolTip", "Escolha o idioma da interface. A escolha é salva automaticamente.")
+        self.ui(self.language_combo, "setAccessibleName", "Idioma")
+        self.language_combo.currentIndexChanged.connect(self.change_language)
+        header.addWidget(self.language_combo)
         outer.addLayout(header)
 
         self.base_label = self.label("Escolha a pasta onde você guarda seus sons.", "muted")
@@ -221,7 +276,7 @@ class SoundManager(QMainWindow):
         side.addWidget(self.base_label)
         navigation = QHBoxLayout()
         self.up_button = self.button("↑ Subir", self.go_up)
-        self.up_button.setToolTip("Subir uma pasta (Alt+↑)")
+        self.ui(self.up_button, 'setToolTip', "Subir uma pasta (Alt+↑)")
         navigation.addWidget(self.up_button)
         navigation.addWidget(self.button("Raiz", lambda: self.navigate(self.base) if self.base else None))
         navigation.addWidget(self.button("↻", self.refresh_folder))
@@ -229,9 +284,9 @@ class SoundManager(QMainWindow):
         self.folders_heading = self.label("PASTAS", "eyebrow")
         side.addWidget(self.folders_heading)
         self.folder_search = QLineEdit()
-        self.folder_search.setPlaceholderText("Filtrar pastas ou arquivos…")
+        self.ui(self.folder_search, 'setPlaceholderText', "Filtrar pastas ou arquivos…")
         self.folder_search.setClearButtonEnabled(True)
-        self.folder_search.setToolTip("Mostra pastas com o texto no nome ou em nomes de arquivos dentro delas, inclusive em subpastas.")
+        self.ui(self.folder_search, 'setToolTip', "Mostra pastas com o texto no nome ou em nomes de arquivos dentro delas, inclusive em subpastas.")
         self.folder_search.textChanged.connect(self.filter_folders)
         side.addWidget(self.folder_search)
         self.folder_model = QFileSystemModel(self)
@@ -240,7 +295,7 @@ class SoundManager(QMainWindow):
         self.folder_model.rowsInserted.connect(self.schedule_folder_filter)
         self.folder_model.rowsRemoved.connect(self.schedule_folder_filter)
         self.folder_model.layoutChanged.connect(self.schedule_folder_filter)
-        self.tree = FolderTree()
+        self.tree = FolderTree(localizer=self.i18n)
         self.tree.setModel(self.folder_model)
         for column in (1, 2, 3):
             self.tree.hideColumn(column)
@@ -261,18 +316,19 @@ class SoundManager(QMainWindow):
         file_heading = QHBoxLayout()
         file_heading.addWidget(self.folder_label, 1)
         self.search = QLineEdit()
-        self.search.setPlaceholderText("Filtrar arquivos pelo nome…")
+        self.ui(self.search, 'setPlaceholderText', "Filtrar arquivos pelo nome…")
         self.search.setClearButtonEnabled(True)
         self.search.setMinimumWidth(260)
         self.search.setMaximumWidth(420)
-        self.search.setToolTip("Mostra arquivos da pasta atual cujo nome contém o texto.")
+        self.ui(self.search, 'setToolTip', "Mostra arquivos da pasta atual cujo nome contém o texto.")
         self.search.textChanged.connect(self.filter_rows)
         file_heading.addWidget(self.search, 1)
         body.addLayout(file_heading)
 
-        self.files = FileList()
+        self.files = FileList(localizer=self.i18n)
         self.files.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-        self.files.setHeaderLabels(["Ouvir / editar", "Nome", "Arquivo", "Reprodução"])
+        self.ui(self.files, 'setHeaderLabels', ["Ouvir / editar", "Nome", "Arquivo", "Reprodução"])
+        self.file_header = self.files.headerItem()
         self.files.setRootIsDecorated(False)
         self.files.setAlternatingRowColors(True)
         self.files.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
@@ -287,11 +343,11 @@ class SoundManager(QMainWindow):
         self.files.setColumnWidth(3, 292)
         self.files.itemClicked.connect(self.file_clicked)
         self.files.itemDoubleClicked.connect(self.file_activated)
-        self.delegate = FileActions(self.files)
+        self.delegate = FileActions(self.files, localizer=self.i18n)
         self.delegate.playRequested.connect(self.play_file)
         self.delegate.editorRequested.connect(self.toggle_editor)
         self.files.setItemDelegateForColumn(0, self.delegate)
-        self.files.dragFinished.connect(lambda action: self.statusBar().showMessage("Arraste concluído." if action == Qt.DropAction.CopyAction else "Arraste cancelado."))
+        self.files.dragFinished.connect(lambda action: self.ui(self.statusBar(), 'showMessage', "Arraste concluído." if action == Qt.DropAction.CopyAction else "Arraste cancelado."))
         body.addWidget(self.files, 1)
 
         self.editor = QFrame()
@@ -315,12 +371,12 @@ class SoundManager(QMainWindow):
         audio_header.addWidget(self.source_button)
         audio_header.addWidget(self.action_button("close", self.close_editor, "Fechar o editor deste som."))
         edit.addLayout(audio_header)
-        self.waveform = Waveform()
+        self.waveform = Waveform(localizer=self.i18n)
         self.waveform.setMinimumHeight(125)
         self.waveform.selectionChanged.connect(self.set_selection)
         self.waveform.viewChanged.connect(self.update_scrollbar)
         edit.addWidget(self.waveform)
-        self.playback_bar = PlaybackBar()
+        self.playback_bar = PlaybackBar(localizer=self.i18n)
         self.playback_bar.seekRequested.connect(self.seek)
         edit.addWidget(self.playback_bar)
         self.wave_scroll = QScrollBar(Qt.Orientation.Horizontal)
@@ -338,11 +394,11 @@ class SoundManager(QMainWindow):
         transport.setSpacing(5)
         self.stop_button = self.button("■", self.stop)
         self.stop_button.setFixedWidth(24)
-        self.stop_button.setToolTip("Parar este som e voltar ao início.")
+        self.ui(self.stop_button, 'setToolTip', "Parar este som e voltar ao início.")
         self.play_selection_button = self.action_button("play", self.play_selection, "Reproduzir somente a seleção.", "Play", True)
         transport.addWidget(self.stop_button)
         self.loop = QCheckBox("↻")
-        self.loop.setToolTip("Repetir este som ou o trecho em reprodução.")
+        self.ui(self.loop, 'setToolTip', "Repetir este som ou o trecho em reprodução.")
         transport.addWidget(self.loop)
         self.position_label = self.label("00:00.000 / 00:00.000", "muted")
         transport.addWidget(self.position_label, 1)
@@ -350,7 +406,7 @@ class SoundManager(QMainWindow):
         self.volume = QSlider(Qt.Orientation.Horizontal)
         self.volume.setRange(0, 100)
         self.volume.setFixedWidth(48)
-        self.volume.setToolTip("Volume de reprodução; não altera as amostras do som.")
+        self.ui(self.volume, 'setToolTip', "Volume de reprodução; não altera as amostras do som.")
         self.volume.valueChanged.connect(lambda value: self.output.setVolume(value / 100))
         transport.addWidget(self.volume)
         self.transport.hide()
@@ -374,7 +430,7 @@ class SoundManager(QMainWindow):
         toolbar.addWidget(self.toolbar_separator())
         self.all_button = self.action_button("select_all", self.select_all, "Selecionar todo o áudio. Ctrl+A")
         self.reverse_button = self.action_button("reverse", lambda: self.apply_effect("reverse"), "Inverter áudio selecionado: tocar de trás para frente, mantendo os canais.")
-        self.reverse_button.setAccessibleName("Inverter áudio selecionado")
+        self.ui(self.reverse_button, 'setAccessibleName', "Inverter áudio selecionado")
         toolbar.addWidget(self.all_button)
         toolbar.addWidget(self.reverse_button)
         toolbar.addStretch()
@@ -458,7 +514,7 @@ class SoundManager(QMainWindow):
         self.splitter.setSizes([290, 910])
         outer.addWidget(self.splitter, 1)
         self.setCentralWidget(container)
-        self.statusBar().showMessage("Pronto para explorar sua biblioteca.")
+        self.ui(self.statusBar(), 'showMessage', "Pronto para explorar sua biblioteca.")
         self.shortcuts = []
         for key, action in [("Space", self.toggle_play), ("Ctrl+O", self.open_file), ("Ctrl+C", self.copy_selection),
                             ("Ctrl+Shift+S", self.save_selection), ("Ctrl+S", self.save_current_audio), ("Ctrl+V", self.paste_at_cursor), ("Alt+Up", self.go_up),
@@ -515,7 +571,7 @@ class SoundManager(QMainWindow):
         self.paste_button.setEnabled(ready and self.copied_clip is not None)
         self.undo_button.setEnabled(ready and bool(self.undo_stack))
         self.redo_button.setEnabled(ready and bool(self.redo_stack))
-        self.edit_state_label.setText("Alterado · salvar" if self.modified else "Original")
+        self.ui(self.edit_state_label, 'setText', "Alterado · salvar" if self.modified else "Original")
 
     def restore_preferences(self):
         self.volume.setValue(int(self.settings.value("volume", 80)))
@@ -543,7 +599,7 @@ class SoundManager(QMainWindow):
 
     def choose_base(self):
         start = str(self.base or default_library_dir())
-        chosen = QFileDialog.getExistingDirectory(self, "Escolha a pasta base da sua biblioteca de sons", start)
+        chosen = QFileDialog.getExistingDirectory(self, self.t("Escolha a pasta base da sua biblioteca de sons"), start, options=QFileDialog.Option.DontUseNativeDialog)
         if chosen:
             self.set_base(Path(chosen))
 
@@ -554,8 +610,8 @@ class SoundManager(QMainWindow):
         self.folder_index = None
         self.folder_search.clear()
         self.base = base.resolve()
-        self.base_label.setText(f"Biblioteca: {self.base.name}")
-        self.base_label.setToolTip(str(self.base))
+        self.ui(self.base_label, 'setText', 'Biblioteca: {0}', self.base.name)
+        self.ui(self.base_label, 'setToolTip', str(self.base))
         self.folder_model.setRootPath(str(self.base))
         self.tree.setRootIndex(self.folder_model.index(str(self.base)))
         self.tree.setColumnWidth(0, 240)
@@ -588,7 +644,7 @@ class SoundManager(QMainWindow):
             return
         self.folder_scan_token = None
         if error:
-            self.statusBar().showMessage(f"Não foi possível filtrar as pastas: {error}")
+            self.ui(self.statusBar(), 'showMessage', 'Não foi possível filtrar as pastas: {0}', error)
             return
         self.folder_index = result
         self.apply_folder_filter()
@@ -598,7 +654,7 @@ class SoundManager(QMainWindow):
             return
         query = self.folder_search.text().casefold()
         searching = bool(query and self.folder_index is None)
-        self.folders_heading.setText("PASTAS · buscando…" if searching else "PASTAS")
+        self.ui(self.folders_heading, 'setText', "PASTAS · buscando…" if searching else "PASTAS")
         allowed = set()
         if query and self.folder_index is not None:
             for path, file_names in self.folder_index.items():
@@ -625,7 +681,7 @@ class SoundManager(QMainWindow):
             return found
 
         visit(self.tree.rootIndex())
-        self.tree.empty_message = ("Buscando nas pastas e nos arquivos…" if searching else "Nenhuma pasta ou arquivo corresponde ao filtro.") if query else "Esta biblioteca não tem subpastas."
+        self.ui(self.tree, "empty_message", ("Buscando nas pastas e nos arquivos…" if searching else "Nenhuma pasta ou arquivo corresponde ao filtro.") if query else "Esta biblioteca não tem subpastas.")
         self.tree.viewport().update()
 
     def navigate(self, folder):
@@ -652,18 +708,18 @@ class SoundManager(QMainWindow):
                 item.setData(1, Qt.ItemDataRole.UserRole, str(path))
                 item.setToolTip(1, str(path))
                 item.setData(0, Qt.ItemDataRole.UserRole, str(path))
-                item.setToolTip(0, "▶ ouvir / pausar   ·   Recortar abre a onda nesta linha")
+                item.setToolTip(0, self.t("▶ ouvir / pausar   ·   Recortar abre a onda nesta linha"))
                 sounds += 1
                 item.setSizeHint(0, QSize(42, 34))
                 self.files.addTopLevelItem(item)
             except OSError:
                 continue
         relative = self.folder.relative_to(self.base) if self.base and self.folder.is_relative_to(self.base) else self.folder
-        self.folder_label.setText(self.base.name if str(relative) == "." else str(relative))
-        self.folder_label.setToolTip(str(self.folder))
+        self.ui(self.folder_label, 'setText', "{0}", self.base.name if str(relative) == "." else str(relative))
+        self.ui(self.folder_label, 'setToolTip', str(self.folder))
         self.up_button.setEnabled(bool(self.base and self.folder.is_relative_to(self.base) and self.folder != self.base))
-        self.files.headerItem().setToolTip(1, f"{sounds} arquivo(s) de áudio · arraste pelo nome para copiar")
-        self.files.empty_message = "Nenhum arquivo de áudio nesta pasta.\nEscolha outra pasta à esquerda."
+        self.ui(self.file_header, 'setToolTip', '{0} arquivo(s) de áudio · arraste pelo nome para copiar', sounds, prefix=(1,))
+        self.ui(self.files, "empty_message", "Nenhum arquivo de áudio nesta pasta.\nEscolha outra pasta à esquerda.")
         if self.base and self.folder.is_relative_to(self.base):
             self.tree.setCurrentIndex(self.folder_model.index(str(self.folder)))
         self.update_file_actions()
@@ -714,11 +770,11 @@ class SoundManager(QMainWindow):
             item.setHidden(not visible)
             shown += visible
         if text:
-            self.files.headerItem().setToolTip(1, f"{shown} resultado(s) nesta pasta")
-            self.files.empty_message = "Nenhum arquivo corresponde ao filtro."
+            self.ui(self.file_header, 'setToolTip', '{0} resultado(s) nesta pasta', shown, prefix=(1,))
+            self.ui(self.files, "empty_message", "Nenhum arquivo corresponde ao filtro.")
         else:
-            self.files.headerItem().setToolTip(1, f"{self.files.topLevelItemCount()} arquivo(s) de áudio · arraste pelo nome para copiar")
-            self.files.empty_message = "Nenhum arquivo de áudio nesta pasta.\nEscolha outra pasta à esquerda."
+            self.ui(self.file_header, 'setToolTip', '{0} arquivo(s) de áudio · arraste pelo nome para copiar', self.files.topLevelItemCount(), prefix=(1,))
+            self.ui(self.files, "empty_message", "Nenhum arquivo de áudio nesta pasta.\nEscolha outra pasta à esquerda.")
         self.files.viewport().update()
 
     def file_clicked(self, item, column):
@@ -823,8 +879,9 @@ class SoundManager(QMainWindow):
     def copy_to_folder(self, paths, folder):
         token = uuid.uuid4().hex
         self.copy_jobs.add(token)
-        self.statusBar().showMessage(f"Copiando {len(paths)} arquivo(s) para {folder}…")
-        self.submit(token, lambda: copy_files(paths, folder), self.on_copied_files)
+        self.ui(self.statusBar(), 'showMessage', 'Copiando {0} arquivo(s) para {1}…', len(paths), folder)
+        copy_label = "copy" if self.i18n.language == "en" else "cópia"
+        self.submit(token, lambda: copy_files(paths, folder, copy_label), self.on_copied_files)
 
     @Slot(object, object, str)
     def on_copied_files(self, token, result, error):
@@ -832,7 +889,7 @@ class SoundManager(QMainWindow):
         if error:
             self.show_error("Erro ao copiar arquivos", error)
         else:
-            self.statusBar().showMessage(f"Copiado(s) {len(result)} arquivo(s) para {result[0].parent}")
+            self.ui(self.statusBar(), 'showMessage', 'Copiado(s) {0} arquivo(s) para {1}', len(result), result[0].parent)
             if self.folder == result[0].parent:
                 self.refresh_folder()
             else:
@@ -840,7 +897,7 @@ class SoundManager(QMainWindow):
 
     def open_file(self):
         patterns = " ".join(f"*{extension}" for extension in sorted(EXTENSIONS))
-        filename, _ = QFileDialog.getOpenFileName(self, "Abrir som", str(self.folder or default_library_dir()), f"Áudio ({patterns});;Todos os arquivos (*)")
+        filename, _ = QFileDialog.getOpenFileName(self, self.t("Abrir som"), str(self.folder or default_library_dir()), self.t('Áudio ({0});;Todos os arquivos (*)', patterns), options=QFileDialog.Option.DontUseNativeDialog)
         if filename:
             path = Path(filename)
             if not self.base:
@@ -876,7 +933,7 @@ class SoundManager(QMainWindow):
         self.edit_token = None
         self.pending_document_state = self.edit_cache.get(path)
         self.transport_path = path
-        self.position_label.setText("Abrindo…")
+        self.ui(self.position_label, 'setText', "Abrindo…")
         self.stop()
         self.player.setSource(QUrl())
         self.clip = None
@@ -888,15 +945,15 @@ class SoundManager(QMainWindow):
         self.pending_play = autoplay
         token = uuid.uuid4().hex
         self.load_token = token
-        self.name_label.setText(f"Carregando {path.name}…")
-        self.info_label.setText("Lendo o áudio e preparando a forma de onda…")
-        self.statusBar().showMessage(f"Abrindo {path.name}…")
+        self.ui(self.name_label, 'setText', 'Carregando {0}…', path.name)
+        self.ui(self.info_label, 'setText', "Lendo o áudio e preparando a forma de onda…")
+        self.ui(self.statusBar(), 'showMessage', 'Abrindo {0}…', path.name)
         pending_edit = next((token for token, state in self.edit_jobs.items() if state["key"] == path), None)
         if pending_edit is not None:
             self.load_token = None
             self.edit_token = pending_edit
             self.update_file_actions()
-            self.statusBar().showMessage(f"Concluindo a edição de {path.name}…")
+            self.ui(self.statusBar(), 'showMessage', 'Concluindo a edição de {0}…', path.name)
             return
         preview = Path(self.temporary.name) / f"{token}.wav"
         cached = self.pending_document_state
@@ -915,9 +972,9 @@ class SoundManager(QMainWindow):
             return
         self.load_token = None
         if error:
-            self.name_label.setText("Não foi possível abrir o som")
-            self.info_label.setText("Escolha outro arquivo na biblioteca.")
-            self.position_label.setText("Erro ao abrir")
+            self.ui(self.name_label, 'setText', "Não foi possível abrir o som")
+            self.ui(self.info_label, 'setText', "Escolha outro arquivo na biblioteca.")
+            self.ui(self.position_label, 'setText', "Erro ao abrir")
             self.update_file_actions()
             self.show_error("Erro ao abrir áudio", error)
             return
@@ -949,13 +1006,13 @@ class SoundManager(QMainWindow):
         self.play_limit = None
         self.play_origin = 0.0
         self.selection_playback = False
-        self.name_label.setText(clip.name)
+        self.ui(self.name_label, 'setText', "{0}", self.display_clip_name())
         self.transport_path = clip.source if clip.source and clip.name == clip.source.name else None
         if self.transport_path:
             self.known_durations[self.transport_path] = clip.duration
-        self.name_label.setToolTip(clip.name)
-        source_format = clip.source.suffix[1:].upper() if clip.source else "ÁUDIO COPIADO"
-        self.info_label.setText(f"{time_label(clip.duration)}    ·    {clip.sample_rate:,} Hz    ·    {'Mono' if clip.channels == 1 else str(clip.channels) + ' canais'}    ·    {source_format}")
+        self.ui(self.name_label, 'setToolTip', "{0}", self.display_clip_name())
+        source_format = clip.source.suffix[1:].upper() if clip.source else Message("ÁUDIO COPIADO")
+        self.ui(self.info_label, 'setText', '{0}    ·    {1:,} Hz    ·    {2}    ·    {3}', time_label(clip.duration), clip.sample_rate, 'Mono' if clip.channels == 1 else Message('{0} canais', (clip.channels,)), source_format)
         self.source_button.setEnabled(bool(clip.source))
         for spin in (self.start_spin, self.end_spin):
             spin.blockSignals(True)
@@ -967,7 +1024,7 @@ class SoundManager(QMainWindow):
         self.set_audio_enabled(True)
         self.on_position(0)
         self.update_file_actions()
-        self.statusBar().showMessage("Som aberto. Use Recortar na linha para selecionar um trecho.")
+        self.ui(self.statusBar(), 'showMessage', "Som aberto. Use Recortar na linha para selecionar um trecho.")
 
     def document_snapshot(self):
         return {"clip": self.clip, "selection": self.waveform.selection, "cursor": self.waveform.cursor,
@@ -995,7 +1052,7 @@ class SoundManager(QMainWindow):
         self.waveform.view_start = min(max(0, start), self.clip.duration - self.waveform.view_length)
         self.waveform.viewChanged.emit(self.waveform.view_start, self.waveform.view_length)
         self.seek(min(state["cursor"], self.clip.duration))
-        self.name_label.setText(f"{self.clip.name}{' · alterado' if self.modified else ''}")
+        self.ui(self.name_label, 'setText', '{0}{1}', self.display_clip_name(), Message(' · alterado' if self.modified else ''))
         self.update_edit_controls()
 
     @staticmethod
@@ -1026,7 +1083,7 @@ class SoundManager(QMainWindow):
         self.edit_token = token
         self.stop()
         self.set_audio_enabled(False)
-        self.statusBar().showMessage(f"{label}…")
+        self.ui(self.statusBar(), 'showMessage', '{0}…', Message(label))
         preview = Path(self.temporary.name) / f"edit-{token}.wav"
         def prepare():
             clip, selection, cursor = operation()
@@ -1066,10 +1123,10 @@ class SoundManager(QMainWindow):
             self.pending_document_state = None
             self.install_clip(clip, preview)
             self.restore_document_state(state)
-            message = f"{context['label']}: concluído."
+            message = Message("{0}: concluído.", (Message(context["label"]),))
             if len(clip.samples) and np.max(np.abs(clip.samples)) > 1:
-                message += " O pico ultrapassa o limite; diminua o volume para evitar distorção."
-            self.statusBar().showMessage(message)
+                message = Message("{0}{1}", (message, Message(" O pico ultrapassa o limite; diminua o volume para evitar distorção.")))
+            self.ui(self.statusBar(), 'showMessage', message)
         else:
             preview.unlink(missing_ok=True)
 
@@ -1127,7 +1184,7 @@ class SoundManager(QMainWindow):
             spin.blockSignals(True)
             spin.setValue(value)
             spin.blockSignals(False)
-        self.selection_label.setText(f"Trecho: {end - start:.4f} s")
+        self.ui(self.selection_label, 'setText', 'Trecho: {0:.4f} s', end - start)
         self.update_edit_controls()
 
     def change_selection_edge(self, edge, value):
@@ -1195,7 +1252,7 @@ class SoundManager(QMainWindow):
         self.selection_token = token
         start, end = self.waveform.selection
         preview = Path(self.temporary.name) / f"selection-{token}.wav"
-        self.statusBar().showMessage("Preparando a reprodução do trecho…")
+        self.ui(self.statusBar(), 'showMessage', "Preparando a reprodução do trecho…")
         def prepare():
             write_preview(clip, preview)
             return preview, start, end
@@ -1224,7 +1281,7 @@ class SoundManager(QMainWindow):
             except OSError:
                 pass
         self.player.play()
-        self.statusBar().showMessage(f"Reproduzindo trecho: {start:.4f} s — {end:.4f} s")
+        self.ui(self.statusBar(), 'showMessage', 'Reproduzindo trecho: {0:.4f} s — {1:.4f} s', start, end)
 
     def stop(self):
         self.selection_token = None
@@ -1257,16 +1314,16 @@ class SoundManager(QMainWindow):
         seconds = min(self.clip.duration, max(0, milliseconds / 1000 + (self.play_origin if self.selection_playback else 0)))
         self.waveform.set_cursor(seconds)
         self.playback_bar.set_cursor(seconds)
-        self.position_label.setText(f"{time_label(seconds)} / {time_label(self.clip.duration)}")
+        self.ui(self.position_label, 'setText', '{0} / {1}', time_label(seconds), time_label(self.clip.duration))
 
     def on_playback_state(self, state):
         if hasattr(self, "play_selection_button"):
             playing = state == QMediaPlayer.PlaybackState.PlayingState
-            self.play_selection_button.setText("Pausa" if playing else "Play")
+            self.ui(self.play_selection_button, 'setText', "Pausa" if playing else "Play")
             self.play_selection_button.setIcon(editor_icon("pause" if playing else "play", True))
             tooltip = "Pausar a reprodução. Espaço" if playing else "Reproduzir / retomar a seleção. Espaço"
-            self.play_selection_button.setToolTip(tooltip)
-            self.play_selection_button.setAccessibleName(tooltip.split(".")[0])
+            self.ui(self.play_selection_button, 'setToolTip', tooltip)
+            self.ui(self.play_selection_button, 'setAccessibleName', tooltip)
             self.update_edit_controls()
         if hasattr(self, "files"):
             self.update_file_actions()
@@ -1278,7 +1335,7 @@ class SoundManager(QMainWindow):
 
     def on_player_error(self, error, message):
         if error != QMediaPlayer.Error.NoError:
-            self.statusBar().showMessage(f"Falha na reprodução: {message}")
+            self.ui(self.statusBar(), 'showMessage', 'Falha na reprodução: {0}', message)
 
     def selection_clip(self):
         if not self.clip:
@@ -1302,10 +1359,10 @@ class SoundManager(QMainWindow):
             mime.setText(f"{self.clip.name} | {start:.4f}s — {end:.4f}s")
             QApplication.clipboard().setMimeData(mime)
             self.paste_button.setEnabled(True)
-            self.clipboard_label.setText(f"Cópia: {self.copied_clip.duration:.4f} s")
-            self.clipboard_label.setToolTip(f"{self.clip.name} · {self.copied_clip.sample_rate} Hz · {start:.4f} s — {end:.4f} s")
-            self.paste_button.setToolTip(f"Colar {self.copied_clip.duration:.4f} s na posição da barra de reprodução. Ctrl+V")
-            self.statusBar().showMessage(f"Trecho de {self.copied_clip.duration:.4f} s copiado. Abra outro som, posicione a barra de reprodução e use o ícone Colar.")
+            self.ui(self.clipboard_label, 'setText', 'Cópia: {0:.4f} s', self.copied_clip.duration)
+            self.ui(self.clipboard_label, 'setToolTip', '{0} · {1} Hz · {2:.4f} s — {3:.4f} s', self.clip.name, self.copied_clip.sample_rate, start, end)
+            self.ui(self.paste_button, 'setToolTip', 'Colar {0:.4f} s na posição da barra de reprodução. Ctrl+V', self.copied_clip.duration)
+            self.ui(self.statusBar(), 'showMessage', 'Trecho de {0:.4f} s copiado. Abra outro som, posicione a barra de reprodução e use o ícone Colar.', self.copied_clip.duration)
         except Exception as exc:
             self.show_error("Erro ao copiar trecho", str(exc))
 
@@ -1339,8 +1396,8 @@ class SoundManager(QMainWindow):
             self.save_selection(whole=True)
             return
         clip = self.clip
-        answer = QMessageBox.question(self, "Salvar áudio?",
-                                     f"Deseja salvar as alterações neste arquivo?\n\n{key}\n\nO arquivo será substituído pelo áudio completo em edição.",
+        answer = QMessageBox.question(self, self.t("Salvar áudio?"),
+                                     self.t('Deseja salvar as alterações neste arquivo?\n\n{0}\n\nO arquivo será substituído pelo áudio completo em edição.', key),
                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                      QMessageBox.StandardButton.No)
         if answer != QMessageBox.StandardButton.Yes:
@@ -1349,7 +1406,7 @@ class SoundManager(QMainWindow):
         self.save_jobs[token] = (key, clip)
         self.exporting = True
         self.update_edit_controls()
-        self.statusBar().showMessage(f"Salvando {key.name}…")
+        self.ui(self.statusBar(), 'showMessage', 'Salvando {0}…', key.name)
         self.submit(token, lambda: save_audio(clip), self.on_audio_saved)
 
     @Slot(object, object, str)
@@ -1364,14 +1421,14 @@ class SoundManager(QMainWindow):
                 cached["modified"] = cached["clip"] is not clip
             if self.document_key() == key:
                 self.modified = self.clip is not clip
-                self.name_label.setText(f"{self.clip.name}{' · alterado' if self.modified else ''}")
+                self.ui(self.name_label, 'setText', '{0}{1}', self.display_clip_name(), Message(' · alterado' if self.modified else ''))
                 self.stash_current_document()
             if row := self.row_for_path(key):
                 try:
                     row.setText(2, f"{key.suffix[1:].upper()} · {self.size_label(key.stat().st_size)}")
                 except OSError:
                     pass
-            self.statusBar().showMessage(f"Salvo: {result}")
+            self.ui(self.statusBar(), 'showMessage', 'Salvo: {0}', result)
         self.update_edit_controls()
 
     def save_selection(self, checked=False, whole=False):
@@ -1383,21 +1440,21 @@ class SoundManager(QMainWindow):
             self.show_error("Trecho inválido", str(exc))
             return
         default_folder = Path(self.settings.value("export_folder", str(self.folder or default_library_dir())))
-        default_name = f"{Path(self.clip.name).stem}{'-copia' if whole else '-trecho'}.wav"
+        default_name = f"{Path(self.t(self.display_clip_name())).stem}{('-copy' if whole else '-selection') if self.i18n.language == 'en' else ('-copia' if whole else '-trecho')}.wav"
         filters = "WAV 24 bits (*.wav);;OGG Vorbis (*.ogg);;FLAC 24 bits (*.flac);;MP3 (*.mp3)"
-        destination, selected_filter = QFileDialog.getSaveFileName(self, "Salvar áudio como" if whole else "Salvar trecho como", str(default_folder / default_name), filters)
+        destination, selected_filter = QFileDialog.getSaveFileName(self, self.t("Salvar áudio como" if whole else "Salvar trecho como"), str(default_folder / default_name), filters, options=QFileDialog.Option.DontUseNativeDialog)
         if not destination:
             return
         path = Path(destination)
         if not path.suffix:
             suffix = {"WAV": ".wav", "OGG": ".ogg", "FLAC": ".flac", "MP3": ".mp3"}[selected_filter.split()[0]]
             path = path.with_suffix(suffix)
-            if path.exists() and QMessageBox.question(self, "Substituir arquivo?", f"{path.name} já existe. Deseja substituir?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
+            if path.exists() and QMessageBox.question(self, self.t("Substituir arquivo?"), self.t('{0} já existe. Deseja substituir?', path.name), QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No) != QMessageBox.StandardButton.Yes:
                 return
         self.exporting = True
         self.export_button.setEnabled(False)
         self.export_all_button.setEnabled(False)
-        self.statusBar().showMessage(f"Salvando {path.name}…")
+        self.ui(self.statusBar(), 'showMessage', 'Salvando {0}…', path.name)
         self.submit(uuid.uuid4().hex, lambda: export_audio(clip, path), self.on_exported)
 
     @Slot(object, object, str)
@@ -1409,7 +1466,7 @@ class SoundManager(QMainWindow):
         else:
             self.settings.setValue("export_folder", str(result.parent))
             self.settings.sync()
-            self.statusBar().showMessage(f"Salvo: {result}")
+            self.ui(self.statusBar(), 'showMessage', 'Salvo: {0}', result)
             if result.parent == self.folder:
                 self.refresh_folder()
             else:
@@ -1420,11 +1477,13 @@ class SoundManager(QMainWindow):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.clip.source.parent)))
 
     def show_error(self, title, message):
-        self.statusBar().showMessage(message)
-        QMessageBox.warning(self, title, message)
+        message = self.i18n.error_message(message)
+        self.ui(self.statusBar(), 'showMessage', message)
+        QMessageBox.warning(self, self.t(title), self.t(message))
 
     def closeEvent(self, event):
         QApplication.instance().removeEventFilter(self)
+        QApplication.instance().removeTranslator(self.qt_translator)
         self.folder_scan_cancel.set()
         self.folder_scan_token = None
         self.folder_filter_timer.stop()
