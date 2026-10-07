@@ -1,94 +1,103 @@
 # Sound Manager
 
-App desktop em Python para explorar uma biblioteca local, ouvir sons sem abrir outro player, editar áudio e salvar recortes. Interface em português, com PySide6, NumPy, SoundFile e FFmpeg incluído nas dependências.
+Organize sua biblioteca de sons, ouça arquivos e edite trechos em uma única janela. O Sound Manager trabalha com os arquivos do seu computador e funciona offline.
 
-## Abrir no Windows
+## Abrir o app
 
-Dê dois cliques em **SoundManager.bat**. O iniciador prepara o ambiente Python e instala as dependências na primeira execução; nesse momento precisa de internet e de Python 3.10 ou superior. Depois, o app funciona offline.
+1. Extraia o pacote recebido para uma pasta do computador.
+2. **Windows:** abra `SoundManager.exe` com dois cliques.
+3. **Linux:** abra `SoundManager`. Se o sistema pedir permissão para executar, marque o arquivo como executável nas propriedades ou use `chmod +x SoundManager` no terminal.
 
-Na primeira abertura, escolha a **pasta base** da biblioteca. É possível trocar a base a qualquer momento pelo botão **Escolher biblioteca…**.
+Não é necessário instalar Python ou FFmpeg para usar o pacote do app. Se o pacote tiver uma pasta `_internal`, mantenha essa pasta junto do programa. A primeira abertura pode levar alguns segundos.
 
-## Usar
+## Escolher seus sons
 
-- Biblioteca, navegação por pastas e abertura de arquivos ficam à esquerda. Clique numa pasta da árvore para ver **somente os arquivos de áudio dela**, à direita. **Subir** vai para a pasta acima; **Raiz** volta à pasta base.
-- Clique em **▶** ao lado de um som para ouvir sem abrir a onda. O mesmo botão pausa; duplo clique no nome também reproduz. **Parar (■)**, **Repetir (↻)**, tempo atual/duração e volume de reprodução ficam na coluna **Reprodução da própria linha do som aberto**. O formato e o tamanho ficam juntos na coluna **Arquivo**. A lista ocupa o espaço até o fim da janela, sem player inferior.
-- Clique em **Recortar**, antes do nome do arquivo, para expandir a forma de onda **na própria linha**. **Fechar** recolhe o editor e devolve o espaço à lista. A onda começa recolhida e não abre automaticamente ao ouvir ou selecionar arquivos.
-- Há dois filtros independentes: **Filtrar pastas ou arquivos…** acima da árvore à esquerda e **Filtrar arquivos pelo nome…** acima da lista à direita. Basta digitar: buscam nomes que **contêm** o texto em qualquer posição, sem diferenciar maiúsculas e minúsculas, como `%meutexto%` — não é preciso digitar os `%`. À esquerda, uma pasta aparece se **o nome dela combinar ou algum arquivo dentro dela combinar**, inclusive em subpastas; os ancestrais continuam visíveis para mostrar o caminho. À direita, são filtrados **somente os arquivos exibidos na pasta atual**. São pesquisados os nomes, sem ler o conteúdo dos arquivos. Limpar pelo **×** restaura os itens. **↻** atualiza a busca depois de alterações feitas fora do app. **Abrir arquivo…** permite abrir um som fora da biblioteca e abre o editor desse arquivo.
-- Arraste pelo **nome do arquivo** para uma pasta na árvore à esquerda ou uma pasta aberta no **Explorer**, para copiar. Ctrl/Shift permitem selecionar vários arquivos. O arraste oferece apenas cópia, preservando o original. Ao copiar dentro do app, nomes repetidos recebem `(cópia)`, `(cópia 2)` etc., sem substituir o destino existente.
-- Arraste sobre a forma de onda para selecionar um trecho. Ajuste as alças ou os campos **Início** e **Fim**, em segundos. A onda controla somente a seleção: clicar ou arrastar nela não move a reprodução. A **barra amarela separada abaixo da onda** controla a posição de reprodução e de colagem; clique ou arraste nela. Ela cobre o áudio inteiro, mesmo quando a onda está ampliada. As setas movem a posição em 0,1 s; Home/End levam ao início/fim.
-- Os ícones de **lupa − / +** e a roda do mouse ampliam a onda. A barra cinza percorre o som ampliado; o ícone de **enquadrar** restaura a visão completa.
-- **Play** toca somente a seleção e vira **Pausa** durante a reprodução. Clique novamente para pausar; **Play** retoma do mesmo ponto. **Repetir** repete o áudio ou o trecho em reprodução. Há controles de parada e volume na linha do arquivo. A linha amarela na onda acompanha a posição da reprodução e é apenas visual: não pode ser arrastada. Use a barra abaixo da onda para mudar a posição.
-- A barra principal reúne **Play, copiar, colar, excluir, desfazer, refazer, selecionar todo o áudio e inverter áudio selecionado** na mesma linha. As ações usam ícones com descrição e atalhos ao passar o mouse, incluindo uma **lixeira** para excluir e **setas curvas** para desfazer/refazer.
-- Os ícones de **alto-falante − / +** ajustam o volume somente da seleção, pelo valor em dB ao lado. As **duas setas opostas** invertem o trecho para tocar de trás para frente, preservando os canais.
-- Os ícones de **rampa crescente / decrescente** aplicam fade in no início ou fade out no final da seleção. O campo **Fade** define a duração em segundos. Se a duração ultrapassar o trecho, o fade ocupa toda a seleção.
-- O ícone **Copiar** guarda uma cópia do áudio numa área temporária na memória. Abra o editor de outro som, posicione a barra amarela abaixo da onda e use o ícone **Colar** ou **Ctrl+V**. O trecho é inserido nessa posição, deslocando o restante do som. A colagem ajusta automaticamente a taxa de amostragem e os canais do trecho ao destino. A área temporária dura até o app ser fechado; uma nova cópia substitui a anterior. Também é colocado um WAV na área de transferência, cujo uso em outro aplicativo depende do suporte dele a `audio/wav`.
-- Os ícones **Desfazer** e **Refazer** permitem voltar e reaplicar edições. As edições de cada arquivo são preservadas na memória ao trocar de som durante a sessão. Para mantê-las depois de fechar o app, use **Salvar áudio**. O histórico mantém até 20 passos, reduzidos conforme o tamanho do áudio para limitar o uso de memória.
-- A **lixeira (Remover seleção)** exclui o trecho e junta diretamente as partes que ficaram antes e depois, sem inserir silêncio. O cursor fica no ponto da junção. **Desfazer / Ctrl+Z** recupera o trecho, e **Refazer** reaplica a remoção. Se remover o áudio inteiro, o editor fica vazio e permite desfazer ou colar um trecho.
-- **Salvar áudio** (Ctrl+S) grava todo o áudio em edição no **mesmo arquivo aberto**, mantendo o caminho e o formato, após perguntar se deseja salvar. Não usa a última pasta de exportação. **Salvar trecho…** (Ctrl+Shift+S) continua exportando a seleção para outro nome ou destino, em WAV 24 bits, OGG Vorbis, FLAC 24 bits ou MP3. A extensão do arquivo determina o formato final. WAV/FLAC evitam a compressão com perda de OGG/MP3.
-- **Mostrar arquivo** abre a pasta do arquivo original no Explorer.
+Na primeira abertura, clique em **Escolher biblioteca…** e selecione a pasta onde estão seus arquivos de áudio. Você pode trocar essa pasta a qualquer momento. O app não inclui uma biblioteca de sons.
 
-O app abre WAV, OGG, MP3, FLAC, AIFF, M4A, AAC, OPUS e WMA. A leitura tenta SoundFile primeiro e usa FFmpeg para os demais codecs. Arquivos danificados mostram uma mensagem de erro. A edição ocorre em memória; arquivos grandes exigem RAM proporcional à duração e à quantidade de canais.
+As pastas aparecem à esquerda. Clique em uma delas para ver seus sons na lista à direita. **Subir** volta à pasta acima e **Raiz** volta à pasta principal da biblioteca. Para abrir um som de outro local, use **Abrir arquivo…**.
 
-As edições ficam na memória até usar **Salvar áudio** e confirmar a substituição do arquivo aberto. A gravação é preparada num arquivo temporário e só substitui o original após terminar com sucesso. Para exportar um trecho, escolha outro nome ou destino; essa exportação bloqueia sobrescrita do original, inclusive quando o destino é um link para ele. Cópias por arraste são criadas apenas na pasta escolhida; o arquivo de origem permanece no lugar.
+Use os campos de busca para encontrar arquivos:
 
-## Preferências e atalhos
+- **Filtrar pastas ou arquivos…**, à esquerda, procura nomes de pastas e dos arquivos dentro delas.
+- **Filtrar arquivos pelo nome…**, à direita, procura apenas os arquivos da pasta que está aberta.
 
-Biblioteca, última pasta, posição e tamanho da janela, divisória, volume, repetição e última pasta de exportação ficam em `.state/settings.ini`. O argumento `--settings` permite escolher outro arquivo de preferências. Se um monitor foi desconectado, a janela volta para uma tela disponível.
+Digite uma parte do nome; maiúsculas e minúsculas não fazem diferença. Clique no **×** para limpar o filtro ou em **↻** para atualizar depois de mudar arquivos fora do app.
 
-| Atalho | Ação |
+## Ouvir um som
+
+Clique em **▶** na linha do arquivo para ouvir. Clique novamente para pausar. Um duplo clique no nome também reproduz o som.
+
+Na mesma linha, você encontra o tempo de reprodução, o volume, **■ Parar** e **↻ Repetir**. O volume de reprodução muda apenas o que você ouve; ele não altera o volume gravado no arquivo.
+
+## Selecionar e editar um trecho
+
+1. Clique em **Recortar** na linha do arquivo para abrir a forma de onda.
+2. Arraste sobre a onda para selecionar o trecho desejado.
+3. Ajuste as alças verdes ou os campos **Início** e **Fim** para refinar a seleção.
+4. Clique em **Play** para ouvir a seleção. O botão vira **Pausa** durante a reprodução; clique nele para pausar e em **Play** para continuar.
+
+A **linha amarela na onda** mostra onde o áudio está tocando. Ela é apenas um indicador. Para mudar a posição de reprodução ou de colagem, clique ou arraste na **barra amarela abaixo da onda**. Na onda, arraste para selecionar trechos ou ajustar suas alças.
+
+Use as lupas ou a roda do mouse para ampliar a onda. A barra cinza percorre o áudio ampliado, e o botão de enquadrar volta a mostrar o som inteiro. **Fechar** recolhe o editor na lista.
+
+Passe o mouse sobre os ícones para ver a função de cada botão. As ferramentas de edição permitem:
+
+- **Copiar:** guardar o trecho selecionado para colar depois.
+- **Colar:** inserir o trecho copiado na posição da barra amarela, inclusive em outro arquivo.
+- **Remover seleção:** excluir o trecho e juntar as partes que ficaram antes e depois. Isso edita o áudio, sem excluir o arquivo da biblioteca.
+- **Desfazer / Refazer:** voltar uma edição ou reaplicá-la.
+- **Selecionar tudo:** selecionar o áudio inteiro.
+- **Inverter:** fazer o trecho tocar de trás para frente.
+- **Volume − / +:** diminuir ou aumentar o volume da seleção pelo valor em dB indicado ao lado.
+- **Fade in / Fade out:** fazer o trecho começar suavemente ou desaparecer aos poucos. O campo **Fade** define a duração do efeito em segundos.
+
+A cópia de áudio fica disponível durante a sessão. Ao copiar outro trecho, você substitui a cópia anterior.
+
+## Salvar suas alterações
+
+**Salvar áudio** grava o áudio completo no **mesmo arquivo que está aberto**. O app mostra o caminho e pede sua confirmação antes de substituir o arquivo. Esse botão não usa a pasta de exportação de trechos.
+
+**Salvar trecho…** cria um arquivo com apenas a seleção. Escolha o nome, a pasta e o formato: WAV, OGG, FLAC ou MP3. Use outro nome ou destino para preservar o arquivo aberto. WAV e FLAC evitam a compressão com perda de OGG e MP3.
+
+As edições são mantidas ao trocar de arquivo durante a sessão. **Para mantê-las depois de fechar o app, use Salvar áudio e confirme.** Alterações não salvas são perdidas ao fechar.
+
+## Copiar arquivos para outra pasta
+
+Arraste pelo **nome do arquivo** para uma pasta na árvore à esquerda ou para uma pasta aberta no gerenciador de arquivos do computador. Use Ctrl ou Shift para selecionar vários arquivos.
+
+O arraste faz uma cópia e mantém o arquivo de origem. Ao copiar dentro do app, nomes repetidos recebem um sufixo como `(cópia)`, sem substituir o arquivo que já existe no destino. **Mostrar arquivo** abre a pasta do som original.
+
+## Atalhos
+
+| Atalho | Função |
 | --- | --- |
 | Espaço | Reproduzir / pausar |
-| Ctrl+O | Abrir arquivo |
-| Ctrl+C | Copiar seleção de áudio |
-| Ctrl+V | Inserir o trecho copiado na posição do cursor |
-| Ctrl+Z | Desfazer edição |
-| Ctrl+Y ou Ctrl+Shift+Z | Refazer edição |
-| Ctrl+A | Selecionar todo o áudio enquanto o editor está aberto; com o editor fechado, selecionar arquivos. Campos de texto mantêm a seleção de texto. |
+| Ctrl+O | Abrir um arquivo |
+| Ctrl+A | Selecionar todo o áudio com o editor aberto; selecionar arquivos com o editor fechado |
+| Ctrl+C | Copiar a seleção de áudio |
+| Ctrl+V | Colar na posição da barra amarela |
+| Ctrl+Z | Desfazer |
+| Ctrl+Y ou Ctrl+Shift+Z | Refazer |
 | Ctrl+S | Salvar o áudio completo no arquivo aberto, após confirmação |
-| Ctrl+Shift+S | Salvar seleção como |
+| Ctrl+Shift+S | Salvar o trecho selecionado em outro arquivo |
 | Alt+↑ | Subir uma pasta |
 
-## Executar manualmente no Windows
+Nos campos de texto, Ctrl+A continua selecionando o texto do campo.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe app.py
-```
+## Preferências e formatos
 
-Uma biblioteca pode ser informada por argumento:
+O app lembra a biblioteca, a última pasta aberta, o tamanho e a posição da janela, o volume de reprodução, a repetição e a última pasta usada para salvar trechos.
 
-```powershell
-.\.venv\Scripts\python.exe app.py --library "C:\MinhaBibliotecaDeSons"
-```
+Formatos que podem ser abertos: **WAV, OGG, MP3, FLAC, AIFF, M4A, AAC, OPUS e WMA**.
 
-## Executar pelo código-fonte no Linux
+## Se precisar de ajuda
 
-Em Ubuntu/Debian, instale Python/venv e as bibliotecas de sistema usadas pelo Qt:
+- **Não sai som:** confira o volume na linha do arquivo, o volume do sistema e o dispositivo de áudio selecionado no computador.
+- **Um arquivo não abre:** tente outro som para conferir se o problema está naquele arquivo. O app mostra uma mensagem quando encontra um áudio danificado.
+- **O app não abre no Linux:** confira se há um ambiente gráfico e as bibliotecas do Qt disponíveis. Em Ubuntu/Debian, as dependências usuais podem ser instaladas com:
 
 ```bash
-sudo apt-get update
-sudo apt-get install python3 python3-venv libegl1 libgl1 libopengl0 \
-  libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
-  libxcb-keysyms1 libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 \
-  libdbus-1-3 libpulse0
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.txt
-.venv/bin/python app.py
+sudo apt-get install libegl1 libgl1 libopengl0 libxkbcommon-x11-0 \
+  libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+  libxcb-render-util0 libxcb-xinerama0 libxcb-xkb1 libdbus-1-3 libpulse0
 ```
-
-## Conteúdo do repositório
-
-Este repositório contém o código-fonte do app, dependências de execução, iniciadores, testes, ferramentas de validação e os ícones da interface. Os testes geram seus próprios áudios sintéticos; nenhuma biblioteca de sons precisa ser baixada para validá-los.
-
-Ambientes Python, preferências pessoais e arquivos de áudio ficam fora do versionamento por meio do `.gitignore`.
-
-## Verificar
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe tools\validate_app.py
-.\.venv\Scripts\python.exe tools\validate_editor.py
-```
-
-O segundo comando verifica a interface, reprodução sem abrir a onda, editor na linha, recorte, exportação, eventos de arraste/cópia e restauração de preferências em um ambiente separado dentro de `.state/validation`, e gera capturas de tela. O terceiro verifica volume, inversão, fades, desfazer/refazer, remoção com junção das partes, áudio vazio, controles de reprodução na própria linha, colagem entre sons com taxas e canais diferentes, troca de documentos durante uma edição e exportação do resultado, em `.state/validation-editor`. Também verifica Ctrl+A, Play/Pausa, indicador na onda e confirmação, cancelamento e falha do salvamento no arquivo aberto, usando apenas arquivos sintéticos. Não alteram as preferências de uso normal nem os sons da biblioteca.
